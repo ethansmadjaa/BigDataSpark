@@ -63,8 +63,8 @@ The project is modular, consisting of the following main components:
 1. Clone the repository:
 
    ```sh
-   git clone https://github.com/ethansmadjaa/SparkStocks.git
-   cd SparkStocks
+   git clone https://github.com/ethansmadjaa/BigDataSpark.git
+   cd BigDataSpark
    ```
 
 2. Set up a virtual environment and activate it:
