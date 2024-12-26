@@ -3,47 +3,33 @@ from typing import Optional, Dict
 
 
 def create_spark_session() -> SparkSession:
-    """
-    Create and configure a Spark session.
-    
-    Returns:
-        SparkSession: Configured Spark session
-    """
+    """Create and configure a Spark session optimized for Streamlit Cloud."""
     try:
-        # Set Java options for code cache
-        import os
-        os.environ['SPARK_SUBMIT_OPTS'] = '-XX:ReservedCodeCacheSize=512M -XX:MaxCodeCacheSize=512M'
-        
-        # Create Spark session with more memory and proper configuration
+        # Create minimal Spark session for cloud deployment
         spark = (SparkSession.builder
                 .appName("Stock Analysis")
-                .config("spark.driver.memory", "4g")
-                .config("spark.executor.memory", "4g")
-                .config("spark.sql.session.timeZone", "UTC")
-                .config("spark.driver.maxResultSize", "4g")
-                .config("spark.memory.offHeap.enabled", "true")
-                .config("spark.memory.offHeap.size", "4g")
-                .config("spark.local.dir", "/tmp")
-                .config("spark.sql.adaptive.enabled", "true")
-                .config("spark.sql.shuffle.partitions", "10")
-                # JVM options for better performance
-                .config("spark.driver.extraJavaOptions", 
-                       "-XX:+UseG1GC -XX:ReservedCodeCacheSize=512M -XX:MaxCodeCacheSize=512M")
-                .config("spark.executor.extraJavaOptions",
-                       "-XX:+UseG1GC -XX:ReservedCodeCacheSize=512M -XX:MaxCodeCacheSize=512M")
-                # Add these configurations for stability
+                # Minimal memory configuration for cloud
+                .config("spark.driver.memory", "1g")
+                .config("spark.executor.memory", "1g")
+                .config("spark.sql.shuffle.partitions", "4")
+                # Essential configurations
                 .config("spark.driver.host", "localhost")
-                .master("local[*]")
+                .config("spark.driver.bindAddress", "127.0.0.1")
+                .config("spark.sql.adaptive.enabled", "true")
+                .config("spark.sql.session.timeZone", "UTC")
+                # Minimal JVM options
+                .config("spark.driver.extraJavaOptions", 
+                       '-XX:+UseG1GC -XX:MaxCodeCacheSize=512M')
+                # Local mode with limited cores
+                .master("local[2]")
                 .getOrCreate())
         
-        # Set log level to reduce noise
         spark.sparkContext.setLogLevel("ERROR")
-        
         return spark
         
     except Exception as e:
         print(f"Error creating Spark session: {str(e)}")
-        raise  # Re-raise the exception to handle it in the calling code
+        raise
 
 
 def stop_spark_session(spark: SparkSession):
