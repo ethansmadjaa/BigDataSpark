@@ -1,10 +1,12 @@
 from datetime import datetime
 import yfinance as yf
+import streamlit as st
 from pyspark.sql import SparkSession, Row
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType
 from pyspark.sql.functions import last, date_add
-import signal
-from contextlib import contextmanager
+import concurrent.futures
+from functools import partial
+import threading
 
 
 def get_ytd_days() -> int:
@@ -84,7 +86,7 @@ def get_stock_info(ticker: str, spark: SparkSession):
         return df.cache()
 
     except Exception as e:
-        print(f"Error fetching stock info for {ticker}: {str(e)}")
+        st.error(f"Error fetching stock info for {ticker}: {str(e)}")
         empty_row = Row(
             ticker=ticker,
             name=None,
@@ -122,22 +124,21 @@ def format_market_cap(market_cap: int) -> str:
         return f"${market_cap:,.0f}" 
 
 
+def fetch_with_timeout(func, timeout_seconds):
+    """Execute function with timeout using ThreadPoolExecutor."""
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(func)
+        try:
+            return future.result(timeout=timeout_seconds)
+        except concurrent.futures.TimeoutError:
+            return None
+
+
 def get_stock_history(ticker: str, spark: SparkSession, days: int = 365):
     """Fetch historical stock data with timeout handling."""
     try:
-        @contextmanager
-        def timeout(seconds):
-            def handler(signum, frame):
-                raise TimeoutError("Request timed out")
-            
-            signal.signal(signal.SIGALRM, handler)
-            signal.alarm(seconds)
-            try:
-                yield
-            finally:
-                signal.alarm(0)
-        
-        with timeout(30):  # 30 second timeout
+        # Function to fetch stock data
+        def fetch_stock_data():
             stock = yf.Ticker(ticker)
             
             # Convert days to appropriate period format
@@ -158,13 +159,23 @@ def get_stock_history(ticker: str, spark: SparkSession, days: int = 365):
             else:
                 period = "max"
             
-            print(f"Fetching {period} of historical data for {ticker}")
-            hist = stock.history(period=period)
+            return stock.history(period=period)
             
-            if hist.empty:
-                print(f"No historical data found for {ticker}")
-                return None
+        # Show loading message
+        with st.spinner(f"Fetching {get_period_name(days)} of historical data for {ticker}..."):
+            # Fetch data with timeout
+            hist = fetch_with_timeout(fetch_stock_data, 30)
+        
+        if hist is None:
+            st.error(f"Request timed out while fetching data for {ticker}")
+            return None
             
+        if hist.empty:
+            st.warning(f"No historical data found for {ticker}")
+            return None
+        
+        # Process the data
+        with st.spinner("Processing data..."):
             # Reset index to make Date a column instead of index
             hist = hist.reset_index()
             
@@ -188,15 +199,34 @@ def get_stock_history(ticker: str, spark: SparkSession, days: int = 365):
             
             # Create Spark DataFrame with explicit schema
             spark_df = spark.createDataFrame(hist, schema=schema)
+            rows_count = spark_df.count()
             
-            # Add debug print
-            print(f"Created Spark DataFrame with {spark_df.count()} rows for {ticker}")
+            # Cache the DataFrame
+            cached_df = spark_df.cache()
             
-            return spark_df.cache()
+            st.success(f"Successfully loaded {rows_count} records for {ticker}")
+            return cached_df
         
-    except TimeoutError:
-        st.error(f"Timeout while fetching data for {ticker}")
-        return None
     except Exception as e:
-        st.error(f"Error fetching data for {ticker}: {str(e)}")
-        return None 
+        st.error(f"Error processing {ticker}: {str(e)}")
+        return None
+
+
+def get_period_name(days: int) -> str:
+    """Convert days to human-readable period name."""
+    if days <= 5:
+        return "5 days"
+    elif days <= 30:
+        return "1 month"
+    elif days <= 90:
+        return "3 months"
+    elif days <= 180:
+        return "6 months"
+    elif days <= 365:
+        return "1 year"
+    elif days <= 730:
+        return "2 years"
+    elif days <= 1825:
+        return "5 years"
+    else:
+        return "maximum available" 
