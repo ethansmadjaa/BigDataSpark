@@ -3,6 +3,8 @@ import yfinance as yf
 from pyspark.sql import SparkSession, Row
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType
 from pyspark.sql.functions import last, date_add
+import signal
+from contextlib import contextmanager
 
 
 def get_ytd_days() -> int:
@@ -121,66 +123,80 @@ def format_market_cap(market_cap: int) -> str:
 
 
 def get_stock_history(ticker: str, spark: SparkSession, days: int = 365):
-    """
-    Fetch historical stock data and return as a cached Spark DataFrame.
-    """
+    """Fetch historical stock data with timeout handling."""
     try:
-        stock = yf.Ticker(ticker)
-        
-        # Convert days to appropriate period format
-        if days <= 5:
-            period = "5d"
-        elif days <= 30:
-            period = "1mo"
-        elif days <= 90:
-            period = "3mo"
-        elif days <= 180:
-            period = "6mo"
-        elif days <= 365:
-            period = "1y"
-        elif days <= 730:
-            period = "2y"
-        elif days <= 1825:
-            period = "5y"
-        else:
-            period = "max"
+        @contextmanager
+        def timeout(seconds):
+            def handler(signum, frame):
+                raise TimeoutError("Request timed out")
             
-        print(f"Fetching {period} of historical data for {ticker}")
-        hist = stock.history(period=period)
+            signal.signal(signal.SIGALRM, handler)
+            signal.alarm(seconds)
+            try:
+                yield
+            finally:
+                signal.alarm(0)
         
-        if hist.empty:
-            print(f"No historical data found for {ticker}")
-            return None
+        with timeout(30):  # 30 second timeout
+            stock = yf.Ticker(ticker)
             
-        # Reset index to make Date a column instead of index
-        hist = hist.reset_index()
+            # Convert days to appropriate period format
+            if days <= 5:
+                period = "5d"
+            elif days <= 30:
+                period = "1mo"
+            elif days <= 90:
+                period = "3mo"
+            elif days <= 180:
+                period = "6mo"
+            elif days <= 365:
+                period = "1y"
+            elif days <= 730:
+                period = "2y"
+            elif days <= 1825:
+                period = "5y"
+            else:
+                period = "max"
+            
+            print(f"Fetching {period} of historical data for {ticker}")
+            hist = stock.history(period=period)
+            
+            if hist.empty:
+                print(f"No historical data found for {ticker}")
+                return None
+            
+            # Reset index to make Date a column instead of index
+            hist = hist.reset_index()
+            
+            # Convert datetime to date string for better compatibility
+            hist['Date'] = hist['Date'].dt.strftime('%Y-%m-%d')
+            
+            # Convert Volume to float
+            hist['Volume'] = hist['Volume'].astype(float)
+            
+            # Define schema explicitly for better control
+            schema = StructType([
+                StructField("Date", StringType(), True),
+                StructField("Open", DoubleType(), True),
+                StructField("High", DoubleType(), True),
+                StructField("Low", DoubleType(), True),
+                StructField("Close", DoubleType(), True),
+                StructField("Volume", DoubleType(), True),
+                StructField("Dividends", DoubleType(), True),
+                StructField("Stock Splits", DoubleType(), True)
+            ])
+            
+            # Create Spark DataFrame with explicit schema
+            spark_df = spark.createDataFrame(hist, schema=schema)
+            
+            # Add debug print
+            print(f"Created Spark DataFrame with {spark_df.count()} rows for {ticker}")
+            
+            return spark_df.cache()
         
-        # Convert datetime to date string for better compatibility
-        hist['Date'] = hist['Date'].dt.strftime('%Y-%m-%d')
-        
-        # Convert Volume to float
-        hist['Volume'] = hist['Volume'].astype(float)
-        
-        # Define schema explicitly for better control
-        schema = StructType([
-            StructField("Date", StringType(), True),
-            StructField("Open", DoubleType(), True),
-            StructField("High", DoubleType(), True),
-            StructField("Low", DoubleType(), True),
-            StructField("Close", DoubleType(), True),
-            StructField("Volume", DoubleType(), True),
-            StructField("Dividends", DoubleType(), True),
-            StructField("Stock Splits", DoubleType(), True)
-        ])
-        
-        # Create Spark DataFrame with explicit schema
-        spark_df = spark.createDataFrame(hist, schema=schema)
-        
-        # Add debug print
-        print(f"Created Spark DataFrame with {spark_df.count()} rows for {ticker}")
-        
-        return spark_df.cache()
-        
+    except TimeoutError:
+        st.error(f"Timeout while fetching data for {ticker}")
+        return None
     except Exception as e:
-        print(f"Error fetching historical data for {ticker}: {str(e)}")
+        st.error(f"Error fetching data for {ticker}: {str(e)}")
         return None 
