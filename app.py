@@ -1,10 +1,11 @@
 import streamlit as st
+import gc
 
 from analysis import analyze_data
 from exploration import explore_data
 from preprocessing import preprocess_data
 from utils.constants import STOCK_CATEGORIES
-from utils.spark_utils import create_spark_session
+from utils.spark_utils import create_spark_session, cleanup_spark_cache
 from utils.stock_utils import get_stock_info, format_market_cap, get_ytd_days
 
 
@@ -153,8 +154,13 @@ def main():
     with tab3:
         analyze_data(spark, selected_stock, days)
 
-    # Clean up at the end
-    spark.stop()
+    # Clean up after operations
+    cleanup_spark_cache(spark)
+    gc.collect()
+
+    # Always stop Spark session
+    if 'spark' in locals():
+        spark.stop()
 
 
 # This is where the app starts running
