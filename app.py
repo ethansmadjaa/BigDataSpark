@@ -17,6 +17,27 @@ def main():
         initial_sidebar_state="expanded"
     )
 
+    # Add personal note/project introduction
+    with st.expander("ℹ️ About this project", expanded=True):
+        st.markdown("""
+        ### 📚 ECE Paris - M1 DATA & AI Project
+        
+        **Big Data Frameworks Course Project**
+        
+        This stock analysis dashboard was developed by:
+        - **Ethan SMADJA**
+        - **Tom URBAN**
+        
+        As part of our M1 DATA & AI curriculum at ECE Paris, we created this project to apply 
+        concepts learned in our Big Data Frameworks course. We used Apache Spark for data 
+        processing and Streamlit for visualization.
+        
+        *Note: This is a learning project - we're still exploring ways to optimize performance 
+        and add new features. Feel free to explore the different analysis tools we've built!*
+        
+        ---
+        """)
+
     st.markdown("""
             <style>
             .main { padding: 0rem 1rem; }
