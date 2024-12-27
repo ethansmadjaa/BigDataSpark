@@ -50,6 +50,13 @@ def show_specific_warning(warning_type: str):
         - VaR calculations are estimates and may not capture extreme events
         - Maximum drawdown shows historical worst case but larger drops are possible
         - Risk metrics should not be used in isolation for investment decisions
+        """,
+        "statistical": """
+        ⚠️ **Statistical Analysis Warning**
+        - Statistical measures are based on historical data
+        - Assumptions about normal distributions may not hold
+        - Outliers can occur more frequently than expected
+        - Past statistical patterns may not predict future behavior
         """
     }
     return st.warning(warnings.get(warning_type, "")) 
