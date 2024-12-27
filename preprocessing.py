@@ -8,6 +8,7 @@ from pyspark.sql.window import Window
 
 def add_technical_indicators(df: DataFrame, spark: SparkSession):
     """Add technical indicators to the dataframe."""
+    # TODO: adjust the number of te tittle based on whats appearing here
     st.subheader("3. Technical Indicators")
 
     with st.expander("📈 Price-Based Indicators", expanded=True):
