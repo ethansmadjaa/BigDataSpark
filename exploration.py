@@ -834,11 +834,26 @@ def explore_data(spark: SparkSession, ticker: str, days: int = 365):
                             corr_stats['common_dates']
                         )
 
+        # Add warning before performance metrics
+        st.warning("""
+        ⚠️ **Performance Analysis Warning**
+        - Past performance does not indicate future results
+        - Historical data may not reflect current market conditions
+        - Performance metrics should not be used in isolation
+        - Market conditions and company fundamentals can change rapidly
+        """)
+        
         # Add Advanced Analytics section
         st.subheader("Advanced Analytics")
         
         performance_stats = analyze_stock_performance(hist_df)
         if performance_stats:
+            st.info("""
+            ⚠️ **Historical Returns Notice**
+            - Returns shown are historical and not indicative of future performance
+            - Trading based solely on historical patterns carries significant risk
+            - Market conditions vary and past patterns may not repeat
+            """)
             # Show period averages
             st.write("##### Price Performance")
             col1, col2 = st.columns(2)
