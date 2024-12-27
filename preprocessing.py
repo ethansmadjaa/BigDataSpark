@@ -385,6 +385,13 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
 def preprocess_data(spark: SparkSession, stock: str, days: int):
     """Preprocess stock data for analysis."""
     st.title("Data Preprocessing")
+    
+    st.warning("""
+    ⚠️ **Data Processing Notice**
+    - Data cleaning may affect analysis accuracy
+    - Missing value treatment can impact results
+    - Processed data may not reflect real-time market conditions
+    """)
 
     # Get the data from exploration
     from utils.stock_utils import get_stock_history
