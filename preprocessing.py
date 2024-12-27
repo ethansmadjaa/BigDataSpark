@@ -15,8 +15,23 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
         st.markdown("""
         ### Understanding Technical Indicators
         
+        ⚠️ **IMPORTANT RISK DISCLAIMER**
+        - Technical indicators are tools, not guaranteed predictions
+        - Always use multiple indicators and additional analysis
+        - Past patterns may not repeat in the future
+        - Market conditions can change rapidly
+        
         Technical indicators help traders analyze price movements and identify potential trading opportunities.
         Here are the indicators available in this analysis:
+        """)
+        
+        # Add warning for each indicator
+        st.markdown("""
+        ⚠️ **Trading Risk Notice**
+        Each indicator has limitations and should not be used in isolation:
+        - False signals can occur
+        - Market conditions affect indicator reliability
+        - Different timeframes may show conflicting signals
         """)
         
         # Simple Moving Averages (SMA)
@@ -197,6 +212,10 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                 tab1, tab2, tab3 = st.tabs(["Moving Averages", "Bollinger Bands", "Momentum Indicators"])
                 
                 with tab1:
+                    st.warning("""
+                    ⚠️ Moving averages are lagging indicators and may not predict future movements.
+                    Use in conjunction with other analysis tools.
+                    """)
                     # Moving Averages Plot
                     fig_ma = go.Figure()
                     
@@ -248,6 +267,10 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                     st.plotly_chart(fig_ma, use_container_width=True)
                 
                 with tab2:
+                    st.warning("""
+                    ⚠️ Bollinger Bands can give false signals in trending markets.
+                    Price touching the bands does not guarantee a reversal.
+                    """)
                     # Bollinger Bands Plot
                     if bb_period:
                         fig_bb = go.Figure()
@@ -307,6 +330,10 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                         st.info("Please select Bollinger Bands period to view this chart")
                 
                 with tab3:
+                    st.warning("""
+                    ⚠️ Momentum indicators may give false signals, especially in ranging markets.
+                    Consider market context when interpreting these signals.
+                    """)
                     # Momentum Indicators Plot
                     if roc_period or momentum_period:
                         fig_mom = make_subplots(rows=2, cols=1, shared_xaxes=True)
