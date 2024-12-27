@@ -43,6 +43,13 @@ def show_specific_warning(warning_type: str):
         - Data may contain delays or inaccuracies
         - Some data points might be missing or incorrect
         - Real-time trading conditions may differ
+        """,
+        "risk_analysis": """
+        ⚠️ **Risk Analysis Warning**
+        - Past volatility does not guarantee future volatility
+        - VaR calculations are estimates and may not capture extreme events
+        - Maximum drawdown shows historical worst case but larger drops are possible
+        - Risk metrics should not be used in isolation for investment decisions
         """
     }
     return st.warning(warnings.get(warning_type, "")) 
