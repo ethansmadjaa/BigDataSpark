@@ -1,52 +1,40 @@
 import streamlit as st
 from pyspark.sql import SparkSession
-from typing import Optional, Dict
 
 
 def create_spark_session() -> SparkSession:
-    """Create and configure a Spark session optimized for Streamlit Cloud."""
+    """
+    Create a simple Spark session for our stock analysis.
+    This is a basic configuration for learning purposes.
+    """
     try:
-        # Create minimal Spark session for cloud deployment
+        # TODO: Might need to adjust memory settings based on data size
         spark = (SparkSession.builder
-                .appName("Stock Analysis")
-                # Minimal memory configuration for cloud
-                .config("spark.driver.memory", "1g")
-                .config("spark.executor.memory", "1g")
-                .config("spark.sql.shuffle.partitions", "4")
-                # Essential configurations
-                .config("spark.driver.host", "localhost")
-                .config("spark.driver.bindAddress", "127.0.0.1")
-                .config("spark.sql.adaptive.enabled", "true")
-                .config("spark.sql.session.timeZone", "UTC")
-                # Minimal JVM options
-                .config("spark.driver.extraJavaOptions", 
-                       '-XX:+UseG1GC -XX:MaxCodeCacheSize=512M')
-                # Local mode with limited cores
-                .master("local[2]")
+                .appName("Stock Analysis Project")
+                # Basic memory settings for local development
+                .config("spark.driver.memory", "2g")
+                # Using local mode for development and testing
+                .master("local[*]")
                 .getOrCreate())
         
+        # Reduce logging noise
         spark.sparkContext.setLogLevel("ERROR")
         return spark
         
     except Exception as e:
-        print(f"Error creating Spark session: {str(e)}")
+        st.error(f"Failed to create Spark session: {str(e)}")
         raise
 
 
 def stop_spark_session(spark: SparkSession):
-    """
-    Safely stop a Spark session.
-    
-    Args:
-        spark (SparkSession): Active Spark session to stop
-    """
-    if spark is not None:
-        try:
-            spark.stop()
-        except Exception as e:
-            print(f"Error stopping Spark session: {str(e)}")
+    """Stop the Spark session when we're done."""
+    if spark:
+        spark.stop()
 
 
-def cleanup_spark_cache(spark: SparkSession) -> None:
-    """Utility function to clean up Spark cache."""
+def cleanup_spark_cache(spark: SparkSession):
+    """
+    Clean up cached data to free memory.
+    Note: This is important when working with limited RAM on my laptop!
+    """
     spark.catalog.clearCache()
