@@ -54,3 +54,4 @@ tzdata==2024.2
 urllib3==2.3.0
 webencodings==0.5.1
 yfinance==0.2.51
+scipy==23.2.1
