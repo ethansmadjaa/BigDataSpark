@@ -2,7 +2,7 @@ import streamlit as st
 
 def show_risk_warning():
     """Display a prominent risk warning."""
-    with st.sidebar.expander("⚠️ Risk Warning", expanded=False):
+    with st.sidebar.expander("⚠️ Risk Warning", expanded=True):
         st.markdown("""
         ### Important Risk Disclaimer
         
@@ -22,3 +22,27 @@ def show_risk_warning():
         
         *By using this tool, you acknowledge these risks and limitations.*
         """) 
+
+def show_specific_warning(warning_type: str):
+    """Display context-specific risk warnings."""
+    warnings = {
+        "technical": """
+        ⚠️ **Technical Analysis Risk**
+        - Indicators may provide false or misleading signals
+        - Market conditions can change unexpectedly
+        - Technical analysis is one of many tools and should not be used alone
+        """,
+        "historical": """
+        ⚠️ **Historical Data Risk**
+        - Past performance does not predict future results
+        - Market conditions change constantly
+        - Historical patterns may not repeat
+        """,
+        "data_quality": """
+        ⚠️ **Data Quality Notice**
+        - Data may contain delays or inaccuracies
+        - Some data points might be missing or incorrect
+        - Real-time trading conditions may differ
+        """
+    }
+    return st.warning(warnings.get(warning_type, "")) 
