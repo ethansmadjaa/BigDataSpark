@@ -119,3 +119,36 @@ This project is licensed under the MIT License.
 ---
 
 Feel free to reach out if you have any questions or run into issues using the app. Happy analyzing!
+
+## Important Risk Disclaimer
+
+⚠️ **This is an Educational Tool Only**
+
+This application comes with significant risks and limitations:
+
+1. **Educational Purpose**
+   - This tool is for learning and demonstration only
+   - Not intended for real trading decisions
+   - Should not be used as a primary trading system
+
+2. **Market Risks**
+   - Stock trading involves risk of loss
+   - Past performance doesn't guarantee future results
+   - Market conditions change rapidly
+
+3. **Technical Analysis Limitations**
+   - Indicators may provide false signals
+   - Historical patterns may not repeat
+   - Technical analysis should not be used in isolation
+
+4. **Data Reliability**
+   - Data may have delays or inaccuracies
+   - Real-time market conditions may differ
+   - Processing and cleaning may affect accuracy
+
+5. **Legal Notice**
+   - Not financial advice
+   - Consult licensed professionals for investment decisions
+   - Users assume all risks associated with use
+
+By using this application, you acknowledge these risks and limitations.
