@@ -7,6 +7,7 @@ from pyspark.sql.functions import last, date_add
 import concurrent.futures
 from functools import partial
 import threading
+import time
 
 
 def get_ytd_days() -> int:
@@ -162,7 +163,8 @@ def get_stock_history(ticker: str, spark: SparkSession, days: int = 365):
             return stock.history(period=period)
             
         # Show loading message
-        with st.spinner(f"Fetching {get_period_name(days)} of historical data for {ticker}..."):
+        status_placeholder = st.empty()  # Create empty placeholder
+        with status_placeholder, st.spinner(f"Fetching {get_period_name(days)} of historical data for {ticker}..."):
             # Fetch data with timeout
             hist = fetch_with_timeout(fetch_stock_data, 30)
         
@@ -204,7 +206,12 @@ def get_stock_history(ticker: str, spark: SparkSession, days: int = 365):
             # Cache the DataFrame
             cached_df = spark_df.cache()
             
-            st.success(f"Successfully loaded {rows_count} records for {ticker}")
+            # Show success message briefly then clear it
+            with status_placeholder:
+                st.success(f"Successfully loaded {rows_count} records for {ticker}")
+                time.sleep(1)  # Show message for 1 second
+                status_placeholder.empty()  # Clear the message
+                
             return cached_df
         
     except Exception as e:
