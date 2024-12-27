@@ -7,6 +7,7 @@ from preprocessing import preprocess_data
 from utils.constants import STOCK_CATEGORIES
 from utils.spark_utils import create_spark_session, cleanup_spark_cache
 from utils.stock_utils import get_stock_info, format_market_cap, get_ytd_days
+from utils.risk_warnings import show_risk_warning
 
 
 def main():
@@ -29,11 +30,15 @@ def main():
         - **Tom URBAN**
         
         As part of our M1 DATA & AI curriculum at ECE Paris, we created this project to apply 
-        concepts learned in our Big Data Frameworks course. We used Apache Spark for data 
-        processing and Streamlit for visualization.
+        concepts learned in our Big Data Frameworks course.
         
-        *Note: This is a learning project - we're still exploring ways to optimize performance 
-        and add new features. Feel free to explore the different analysis tools we've built!*
+        ⚠️ **RISK WARNING**
+        
+        This tool is for educational purposes only:
+        - Past performance does not guarantee future results
+        - Technical analysis should not be used as the sole decision-making tool
+        - Always conduct thorough research and consider consulting financial professionals
+        - Trading stocks involves substantial risk of loss
         
         ---
         """)
@@ -163,6 +168,9 @@ def main():
             st.sidebar.markdown(display_html, unsafe_allow_html=True)
         else:
             st.sidebar.warning("No data available for this stock")
+
+    # Show risk warning
+    show_risk_warning()
 
     # Create three main tabs for different types of analysis
     tab1, tab2, tab3 = st.tabs(["Explore", "Process", "Analyze"])
