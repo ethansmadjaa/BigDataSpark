@@ -1,70 +1,85 @@
 import streamlit as st
 
+
+# TODO: add more specific warnings for different market conditions
+# TODO: translate warnings in other languages
+# TODO: fix the weird formatting in sidebar
+# TODO: make warnings less boring maybe add some emojis
+
 def show_risk_warning():
-    """Display a prominent risk warning."""
+    """Show the big warning in sidebar - legal stuff."""
     with st.sidebar.expander("⚠️ Risk Warning", expanded=True):
         st.markdown("""
-        ### Important Risk Disclaimer
+        ### ⚠️ Hey, Listen Up!
         
-        **This is an educational project and should not be used for actual trading decisions.**
+        **This is just for learning! Don't use it for real trading!!**
         
-        Key Risk Factors:
-        - Market risk: Stock prices can go down as well as up
-        - Technical analysis limitations: Past patterns may not predict future movements
-        - Data reliability: Real-time data may have delays or inaccuracies
-        - Educational purpose: This tool is not financial advice
+        Stuff that can go wrong:
+        - Markets are crazy: stonks go up AND down 📈📉
+        - Technical analysis isn't magic: patterns don't always work
+        - Data might be wrong or delayed (yeah it happens)
+        - We're not financial advisors lol
         
-        Always:
-        - Do your own research
-        - Consider consulting financial professionals
-        - Understand the risks involved in stock trading
-        - Use multiple sources of information
+        What you should do:
+        - Do ur own research (srsly)
+        - Talk to actual pros who know stuff
+        - Know what you're getting into
+        - Check multiple sources (not just us)
         
-        *By using this tool, you acknowledge these risks and limitations.*
-        """) 
+        *If you use this, you're on your own! Don't blame us if things go south.*
+        """)
 
-def show_specific_warning(warning_type: str):
-    """Display context-specific risk warnings."""
+
+def show_specific_warning(warn_type: str):
+    """Show diff warnings depending on what user's doing."""
+    # dict of warnings - might need to add more later
     warnings = {
         "technical": """
-        ⚠️ **Technical Analysis Risk**
-        - Indicators may provide false or misleading signals
-        - Market conditions can change unexpectedly
-        - Technical analysis is one of many tools and should not be used alone
+        ⚠️ **Watch Out with Technical Analysis**
+        - Indicators can lie to you sometimes
+        - Markets do whatever they want
+        - Don't just trust the lines on charts
         """,
+
         "historical": """
-        ⚠️ **Historical Data Risk**
-        - Past performance does not predict future results
-        - Market conditions change constantly
-        - Historical patterns may not repeat
+        ⚠️ **Past Performance = Not Future Results**
+        - Just cuz it happened before doesn't mean it'll happen again
+        - Markets change all the time
+        - History doesn't always repeat (but it rhymes)
         """,
+
         "data_quality": """
-        ⚠️ **Data Quality Notice**
-        - Data may contain delays or inaccuracies
-        - Some data points might be missing or incorrect
-        - Real-time trading conditions may differ
+        ⚠️ **Data Might Be Sus**
+        - Could be delays or errors
+        - Some data points might be missing
+        - Real market might be different rn
         """,
+
         "risk_analysis": """
-        ⚠️ **Risk Analysis Warning**
-        - Past volatility does not guarantee future volatility
-        - VaR calculations are estimates and may not capture extreme events
-        - Maximum drawdown shows historical worst case but larger drops are possible
-        - Risk metrics should not be used in isolation for investment decisions
+        ⚠️ **Risk Analysis - Handle with Care**
+        - Past volatility doesn't predict future craziness
+        - VaR is just a guess (and sometimes wrong)
+        - Max drawdown could get worse
+        - Don't yolo based on these numbers alone
         """,
+
         "statistical": """
-        ⚠️ **Statistical Analysis Warning**
-        - Statistical measures are based on historical data
-        - Assumptions about normal distributions may not hold
-        - Outliers can occur more frequently than expected
-        - Past statistical patterns may not predict future behavior
+        ⚠️ **Stats Can Be Tricky**
+        - All based on old data
+        - Normal distribution? Markets laugh at that
+        - Weird stuff happens more than math says it should
+        - Past patterns might mean nothing tomorrow
         """,
+
         "trading_signal": """
-        ⚠️ **Trading Signal Warning**
-        - This signal is for educational purposes only
-        - Based on historical data which may not predict future performance
-        - Multiple factors should be considered before making investment decisions
-        - Consult with financial professionals before trading
-        - Market conditions can change rapidly
+        ⚠️ **Don't Blindly Trust These Signals**
+        - This is for education only!
+        - Based on past data (which might not matter)
+        - Look at other stuff before trading
+        - Talk to real financial pros
+        - Markets can flip on you real quick
         """
     }
-    return st.warning(warnings.get(warning_type, "")) 
+
+    # show the warning if we have one for this type
+    return st.warning(warnings.get(warn_type, ""))
