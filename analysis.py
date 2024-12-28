@@ -35,6 +35,21 @@ def analyze_volatility(df):
     Higher = more risky.
     """)
 
+    st.markdown("""
+        <div class="tooltip">ℹ️ About Volatility
+            <span class="tooltiptext">
+            <strong>Understanding Volatility:</strong><br>
+            • Measures price variation intensity<br>
+            • Higher volatility = Higher risk<br>
+            • Annualized using √252 (trading days)<br>
+            • Common ranges:<br>
+              - Low: < 15%<br>
+              - Medium: 15-35%<br>
+              - High: > 35%
+            </span>
+        </div>
+    """, unsafe_allow_html=True)
+
     vol = df.select(stddev("daily_return")).first()[0]
     if vol:
         annual_vol = vol * math.sqrt(252)  # annualize it
@@ -67,6 +82,19 @@ def analyze_drawdown(df, display=True):
         st.markdown("""
         Max drawdown = biggest drop from peak. Shows how bad it can get.
         """)
+
+        st.markdown("""
+        <div class="tooltip">ℹ️ About Maximum Drawdown
+            <span class="tooltiptext">
+            <strong>Maximum Drawdown Analysis:</strong><br>
+            • Measures biggest peak-to-trough decline<br>
+            • Shows worst possible timing scenario<br>
+            • Important for risk management<br>
+            • Recovery time is also crucial<br>
+            • Example: -20% means you need +25% to recover
+            </span>
+        </div>
+    """, unsafe_allow_html=True)
 
         max_dd = df.select(min("drawdown")).first()[0]
         st.metric(
@@ -107,6 +135,19 @@ def calculate_var(returns):
     VaR = how much you might lose (probably).
     95% = you should be fine 19 days out of 20.
     """)
+
+    st.markdown("""
+        <div class="tooltip">ℹ️ About Value at Risk (VaR)
+            <span class="tooltiptext">
+            <strong>Value at Risk Explained:</strong><br>
+            • 95% VaR: Maximum loss in normal conditions<br>
+            • 99% VaR: Maximum loss in extreme conditions<br>
+            • Based on historical returns<br>
+            • Example: 5% VaR of -2% means:<br>
+              You have 95% chance of not losing more than 2% in a day
+            </span>
+        </div>
+    """, unsafe_allow_html=True)
 
     if returns:
         returns.sort()
