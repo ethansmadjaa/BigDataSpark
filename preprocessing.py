@@ -6,9 +6,14 @@ from pyspark.sql.functions import col, isnan, avg, expr, stddev, lag
 from pyspark.sql.window import Window
 
 
+# TODO: refactor this huge file into smaller modules
+# TODO: fix the weird bug with bollinger bands calculation
+# TODO: add RSI and MACD indicators
+# TODO: optimize the window calculations - too slow rn
+
 def add_technical_indicators(df: DataFrame, spark: SparkSession):
     """Add technical indicators to the dataframe."""
-    # TODO: adjust the number of te tittle based on whats appearing here
+    # messy title but works for now
     st.subheader("3. Technical Indicators")
 
     with st.expander("📈 Price-Based Indicators", expanded=True):
@@ -24,8 +29,8 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
         Technical indicators help traders analyze price movements and identify potential trading opportunities.
         Here are the indicators available in this analysis:
         """)
-        
-        # Add warning for each indicator
+
+        # warn users about risks - legal stuff
         st.markdown("""
         ⚠️ **Trading Risk Notice**
         Each indicator has limitations and should not be used in isolation:
@@ -33,8 +38,8 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
         - Market conditions affect indicator reliability
         - Different timeframes may show conflicting signals
         """)
-        
-        # Simple Moving Averages (SMA)
+
+        # SMA stuff
         st.write("##### Simple Moving Averages (SMA)")
         st.markdown("""
         **What is SMA?**  
@@ -45,14 +50,14 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
         
         *Trading signals often occur when shorter SMAs cross longer SMAs.*
         """)
-        sma_periods = st.multiselect(
+        sma_prds = st.multiselect(
             "Select SMA periods (days):",
             options=[5, 10, 20, 50, 100, 200],
             default=[20, 50, 200],
             help="Common SMA periods are 20 (month), 50 (quarter) and 200 (year) days"
         )
 
-        # EMA
+        # EMA config
         st.write("##### Exponential Moving Average (EMA)")
         st.markdown("""
         **What is EMA?**  
@@ -62,14 +67,14 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
         
         *EMAs react faster to price changes than SMAs.*
         """)
-        ema_periods = st.multiselect(
+        ema_prds = st.multiselect(
             "Select EMA periods (days):",
             options=[12, 26, 50, 200],
             default=[12, 26],
             help="EMA gives more weight to recent prices. Common periods are 12 and 26 days"
         )
 
-        # Bollinger Bands
+        # bollinger config - might need tuning
         st.write("##### Bollinger Bands")
         st.markdown("""
         **What are Bollinger Bands?**  
@@ -80,14 +85,14 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
         
         *When prices move outside the bands, it may indicate overbought or oversold conditions.*
         """)
-        bb_period = st.slider(
+        bb_prd = st.slider(
             "Bollinger Bands period:",
             min_value=5,
             max_value=50,
             value=20,
             help="Standard period is 20 days"
         )
-        bb_stddev = st.slider(
+        bb_std = st.slider(
             "Number of standard deviations:",
             min_value=1,
             max_value=3,
@@ -95,7 +100,7 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
             help="Standard is 2 standard deviations"
         )
 
-        # ROC
+        # ROC settings
         st.write("##### Price Rate of Change (ROC)")
         st.markdown("""
         **What is ROC?**  
@@ -105,7 +110,7 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
         
         *Extreme ROC values might indicate overbought or oversold conditions.*
         """)
-        roc_period = st.slider(
+        roc_prd = st.slider(
             "ROC period (days):",
             min_value=1,
             max_value=100,
@@ -113,7 +118,7 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
             help="Measures price change over specified period"
         )
 
-        # Momentum
+        # momentum stuff
         st.write("##### Price Momentum")
         st.markdown("""
         **What is Price Momentum?**  
@@ -123,7 +128,7 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
         
         *Strong momentum in either direction might indicate trend continuation.*
         """)
-        momentum_period = st.slider(
+        mom_prd = st.slider(
             "Momentum period (days):",
             min_value=1,
             max_value=100,
@@ -131,86 +136,86 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
             help="Measures price momentum over specified period"
         )
 
+        # calculate everything when user clicks
         if st.button("Calculate Selected Indicators"):
             with st.spinner("Calculating technical indicators..."):
-                df_indicators = df
+                df_indic = df
 
-                # Calculate SMAs
-                if sma_periods:
-                    for period in sma_periods:
-                        window_spec = (
+                # calc SMAs
+                if sma_prds:
+                    for prd in sma_prds:
+                        win_spec = (
                             Window.orderBy("Date")
-                            .rowsBetween(-(period - 1), 0)
+                            .rowsBetween(-(prd - 1), 0)
                         )
-                        df_indicators = df_indicators.withColumn(
-                            f"SMA_{period}",
-                            avg("Close").over(window_spec)
+                        df_indic = df_indic.withColumn(
+                            f"SMA_{prd}",
+                            avg("Close").over(win_spec)
                         )
 
-                # Calculate EMAs
-                if ema_periods:
-                    for period in ema_periods:
-                        smoothing = 2.0 / (period + 1)
-                        window_spec = Window.orderBy("Date")
-                        df_indicators = df_indicators.withColumn(
-                            f"EMA_{period}",
-                            # EMA calculation using window functions
+                # calc EMAs - bit hacky but works
+                if ema_prds:
+                    for prd in ema_prds:
+                        smooth = 2.0 / (prd + 1)
+                        win_spec = Window.orderBy("Date")
+                        df_indic = df_indic.withColumn(
+                            f"EMA_{prd}",
                             expr(f"""
                                 first_value(Close) over (
                                     order by Date 
-                                    rows between {period - 1} preceding and {period - 1} preceding
+                                    rows between {prd - 1} preceding and {prd - 1} preceding
                                 )
                             """)
                         )
 
-                # Calculate Bollinger Bands
-                if bb_period:
-                    window_spec = (
+                # calc bollinger - check if calcs are correct
+                if bb_prd:
+                    win_spec = (
                         Window.orderBy("Date")
-                        .rowsBetween(-(bb_period - 1), 0)
+                        .rowsBetween(-(bb_prd - 1), 0)
                     )
-                    df_indicators = df_indicators.withColumn(
-                        f"BB_middle_{bb_period}",
-                        avg("Close").over(window_spec)
+                    df_indic = df_indic.withColumn(
+                        f"BB_middle_{bb_prd}",
+                        avg("Close").over(win_spec)
                     ).withColumn(
-                        f"BB_std_{bb_period}",
-                        stddev("Close").over(window_spec)
+                        f"BB_std_{bb_prd}",
+                        stddev("Close").over(win_spec)
                     ).withColumn(
-                        f"BB_upper_{bb_period}",
-                        col(f"BB_middle_{bb_period}") + (bb_stddev * col(f"BB_std_{bb_period}"))
+                        f"BB_upper_{bb_prd}",
+                        col(f"BB_middle_{bb_prd}") + (bb_std * col(f"BB_std_{bb_prd}"))
                     ).withColumn(
-                        f"BB_lower_{bb_period}",
-                        col(f"BB_middle_{bb_period}") - (bb_stddev * col(f"BB_std_{bb_period}"))
+                        f"BB_lower_{bb_prd}",
+                        col(f"BB_middle_{bb_prd}") - (bb_std * col(f"BB_std_{bb_prd}"))
                     )
 
-                # Calculate ROC
-                if roc_period:
-                    window_spec = Window.orderBy("Date")
-                    df_indicators = df_indicators.withColumn(
-                        f"ROC_{roc_period}",
-                        ((col("Close") - lag("Close", roc_period).over(window_spec)) /
-                         lag("Close", roc_period).over(window_spec) * 100)
+                # calc ROC
+                if roc_prd:
+                    win_spec = Window.orderBy("Date")
+                    df_indic = df_indic.withColumn(
+                        f"ROC_{roc_prd}",
+                        ((col("Close") - lag("Close", roc_prd).over(win_spec)) /
+                         lag("Close", roc_prd).over(win_spec) * 100)
                     )
 
-                # Calculate Momentum
-                if momentum_period:
-                    window_spec = Window.orderBy("Date")
-                    df_indicators = df_indicators.withColumn(
-                        f"Momentum_{momentum_period}",
-                        col("Close") - lag("Close", momentum_period).over(window_spec)
+                # calc momentum
+                if mom_prd:
+                    win_spec = Window.orderBy("Date")
+                    df_indic = df_indic.withColumn(
+                        f"Momentum_{mom_prd}",
+                        col("Close") - lag("Close", mom_prd).over(win_spec)
                     )
 
-                # Visualize indicators
+                # viz stuff
                 st.subheader("Technical Indicators Visualization")
-                
-                # Get data for plotting
-                plot_data = df_indicators.orderBy("Date").collect()
+
+                # get data ready for plots
+                plot_data = df_indic.orderBy("Date").collect()
                 dates = [row["Date"] for row in plot_data]
                 prices = [row["Close"] for row in plot_data]
-                
-                # Create tabs for different indicator groups
+
+                # tabs for different indicators
                 tab1, tab2, tab3 = st.tabs(["Moving Averages", "Bollinger Bands", "Momentum Indicators"])
-                
+
                 with tab1:
                     st.warning("""
                     ⚠️ Moving averages are lagging indicators and may not predict future movements.
@@ -218,7 +223,7 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                     """)
                     # Moving Averages Plot
                     fig_ma = go.Figure()
-                    
+
                     # Add price
                     fig_ma.add_trace(
                         go.Scatter(
@@ -228,35 +233,35 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                             line=dict(color="#00B5F7", width=2)
                         )
                     )
-                    
+
                     # Add SMAs
-                    if sma_periods:
+                    if sma_prds:
                         colors = ["#FF6B6B", "#4ECDC4", "#45B7D1"]
-                        for period, color in zip(sma_periods, colors):
-                            sma_values = [row[f"SMA_{period}"] for row in plot_data]
+                        for prd, color in zip(sma_prds, colors):
+                            sma_values = [row[f"SMA_{prd}"] for row in plot_data]
                             fig_ma.add_trace(
                                 go.Scatter(
                                     x=dates,
                                     y=sma_values,
-                                    name=f"SMA {period}",
+                                    name=f"SMA {prd}",
                                     line=dict(color=color, width=1.5)
                                 )
                             )
-                    
+
                     # Add EMAs
-                    if ema_periods:
+                    if ema_prds:
                         colors = ["#FFE66D", "#96CEB4"]
-                        for period, color in zip(ema_periods, colors):
-                            ema_values = [row[f"EMA_{period}"] for row in plot_data]
+                        for prd, color in zip(ema_prds, colors):
+                            ema_values = [row[f"EMA_{prd}"] for row in plot_data]
                             fig_ma.add_trace(
                                 go.Scatter(
                                     x=dates,
                                     y=ema_values,
-                                    name=f"EMA {period}",
+                                    name=f"EMA {prd}",
                                     line=dict(color=color, width=1.5, dash='dash')
                                 )
                             )
-                    
+
                     fig_ma.update_layout(
                         title="Price with Moving Averages",
                         xaxis_title="Date",
@@ -265,16 +270,16 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                         height=500
                     )
                     st.plotly_chart(fig_ma, use_container_width=True)
-                
+
                 with tab2:
                     st.warning("""
                     ⚠️ Bollinger Bands can give false signals in trending markets.
                     Price touching the bands does not guarantee a reversal.
                     """)
                     # Bollinger Bands Plot
-                    if bb_period:
+                    if bb_prd:
                         fig_bb = go.Figure()
-                        
+
                         # Add price
                         fig_bb.add_trace(
                             go.Scatter(
@@ -284,12 +289,12 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                                 line=dict(color="#00B5F7", width=2)
                             )
                         )
-                        
+
                         # Add Bollinger Bands
-                        bb_middle = [row[f"BB_middle_{bb_period}"] for row in plot_data]
-                        bb_upper = [row[f"BB_upper_{bb_period}"] for row in plot_data]
-                        bb_lower = [row[f"BB_lower_{bb_period}"] for row in plot_data]
-                        
+                        bb_middle = [row[f"BB_middle_{bb_prd}"] for row in plot_data]
+                        bb_upper = [row[f"BB_upper_{bb_prd}"] for row in plot_data]
+                        bb_lower = [row[f"BB_lower_{bb_prd}"] for row in plot_data]
+
                         fig_bb.add_trace(
                             go.Scatter(
                                 x=dates,
@@ -298,28 +303,28 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                                 line=dict(color="#95A5A6", width=1)
                             )
                         )
-                        
+
                         fig_bb.add_trace(
                             go.Scatter(
                                 x=dates,
                                 y=bb_upper,
-                                name=f"Upper Band ({bb_stddev}σ)",
+                                name=f"Upper Band ({bb_std}σ)",
                                 line=dict(color="#95A5A6", width=1, dash='dot')
                             )
                         )
-                        
+
                         fig_bb.add_trace(
                             go.Scatter(
                                 x=dates,
                                 y=bb_lower,
-                                name=f"Lower Band ({bb_stddev}σ)",
+                                name=f"Lower Band ({bb_std}σ)",
                                 line=dict(color="#95A5A6", width=1, dash='dot'),
                                 fill='tonexty'
                             )
                         )
-                        
+
                         fig_bb.update_layout(
-                            title=f"Bollinger Bands ({bb_period} periods)",
+                            title=f"Bollinger Bands ({bb_prd} periods)",
                             xaxis_title="Date",
                             yaxis_title="Price ($)",
                             template="plotly_dark",
@@ -328,56 +333,56 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                         st.plotly_chart(fig_bb, use_container_width=True)
                     else:
                         st.info("Please select Bollinger Bands period to view this chart")
-                
+
                 with tab3:
                     st.warning("""
                     ⚠️ Momentum indicators may give false signals, especially in ranging markets.
                     Consider market context when interpreting these signals.
                     """)
                     # Momentum Indicators Plot
-                    if roc_period or momentum_period:
+                    if roc_prd or mom_prd:
                         fig_mom = make_subplots(rows=2, cols=1, shared_xaxes=True)
-                        
-                        if roc_period:
-                            roc_values = [row[f"ROC_{roc_period}"] for row in plot_data]
+
+                        if roc_prd:
+                            roc_values = [row[f"ROC_{roc_prd}"] for row in plot_data]
                             fig_mom.add_trace(
                                 go.Scatter(
                                     x=dates,
                                     y=roc_values,
-                                    name=f"ROC ({roc_period})",
+                                    name=f"ROC ({roc_prd})",
                                     line=dict(color="#F39C12")
                                 ),
                                 row=1, col=1
                             )
-                        
-                        if momentum_period:
-                            momentum_values = [row[f"Momentum_{momentum_period}"] for row in plot_data]
+
+                        if mom_prd:
+                            momentum_values = [row[f"Momentum_{mom_prd}"] for row in plot_data]
                             fig_mom.add_trace(
                                 go.Scatter(
                                     x=dates,
                                     y=momentum_values,
-                                    name=f"Momentum ({momentum_period})",
+                                    name=f"Momentum ({mom_prd})",
                                     line=dict(color="#E74C3C")
                                 ),
                                 row=2, col=1
                             )
-                        
+
                         fig_mom.update_layout(
                             title="Momentum Indicators",
                             template="plotly_dark",
                             height=600,
                             showlegend=True
                         )
-                        
+
                         fig_mom.update_xaxes(title_text="Date", row=2, col=1)
                         fig_mom.update_yaxes(title_text="ROC (%)", row=1, col=1)
                         fig_mom.update_yaxes(title_text="Momentum", row=2, col=1)
-                        
+
                         st.plotly_chart(fig_mom, use_container_width=True)
                     else:
                         st.info("Please select ROC or Momentum period to view this chart")
 
-                return df_indicators
+                return df_indic
 
     return df
 
@@ -385,7 +390,7 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
 def preprocess_data(spark: SparkSession, stock: str, days: int):
     """Preprocess stock data for analysis."""
     st.title("Data Preprocessing")
-    
+
     st.warning("""
     ⚠️ **Data Processing Notice**
     - Data cleaning may affect analysis accuracy
