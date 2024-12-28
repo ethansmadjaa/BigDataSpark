@@ -12,143 +12,124 @@ The main goal of this application is to extract useful information from historic
 
 ## Objectives
 
-- Apply big data concepts to create a structured data analysis pipeline.
-- Use Spark to build a scalable solution for analyzing large datasets of stock data.
-- Generate meaningful insights to assist traders in making informed investment decisions.
-- Use visualization tools (Matplotlib, Seaborn, Plotly) to effectively present findings.
+- Apply big data concepts to create a structured data analysis pipeline
+- Use Spark to build a scalable solution for analyzing large datasets of stock data
+- Generate meaningful insights to assist traders in making informed investment decisions
+- Use visualization tools (Plotly) to effectively present findings
 
 ## Project Structure
 
 The project is modular, consisting of the following main components:
 
-- **app.py**: The main application file that serves as the entry point. It connects to **Streamlit** and **Spark** and facilitates user interaction through a web interface.
-- **exploration.py**: Handles initial data exploration, including descriptive statistics, data overview, and insights about the data structure.
-- **preprocessing.py**: Contains all preprocessing steps, such as handling missing values, data normalization, and ensuring data consistency.
-- **analysis.py**: Focuses on performing financial calculations (e.g., daily returns, moving averages) and generating visualizations to assist in data analysis.
-- **utils/spark\_utils.py**: Helper functions for initializing Spark and managing configurations.
-- **requirements.txt**: Lists all the necessary dependencies required for the project.
+- **app.py**: Main application file with Streamlit interface and stock selection
+- **exploration.py**: Handles data visualization and basic statistics
+- **preprocessing.py**: Technical indicators and data cleaning
+- **analysis.py**: Risk metrics and trading signals
+- **utils/**
+  - **spark_utils.py**: Spark session management
+  - **stock_utils.py**: Stock data fetching and processing
+  - **risk_warnings.py**: Risk disclaimers
+  - **constants.py**: Stock categories and configuration
 
-## Main Features
+## Features
 
-- **Exploration Module**
+### 1. Data Exploration
+- Interactive candlestick charts with volume
+- Basic statistics (price, volume, returns)
+- Moving averages visualization
+- Stock comparison tools
 
-  - Show the first and last 40 rows of the dataset.
-  - Display the number of observations.
-  - Calculate and present descriptive statistics (e.g., min, max, mean, standard deviation).
-  - Identify the frequency of data points automatically.
+### 2. Data Processing
+- Missing value detection and handling
+- Technical indicators calculation:
+  - Simple Moving Averages (SMA)
+  - Exponential Moving Averages (EMA)
+  - Bollinger Bands
+  - Price Rate of Change (ROC)
+  - Momentum indicators
 
-- **Preprocessing Module**
+### 3. Analysis
+- Risk metrics:
+  - Volatility analysis
+  - Maximum drawdown
+  - Value at Risk (VaR)
+- Statistical analysis:
+  - Return distribution
+  - Normality tests
+  - Outlier detection
+- Trading signals based on multiple factors
 
-  - Handle missing values by filling or dropping them as needed.
-  - Normalize numerical columns for easier analysis.
-  - Manage data consistency and formatting.
-
-- **Analysis and Visualization Module**
-
-  - Calculate the daily returns of each stock.
-  - Plot distribution plots for daily returns to understand volatility.
-  - Implement moving averages to identify trends.
-  - Visualize correlations between different stocks.
-  - Provide interactive data visualizations using **Seaborn**, **Matplotlib**, and **Plotly**.
-
-## Installation and Usage
+## Installation
 
 ### Prerequisites
-
 - Python 3.11
-- Apache Spark
+- Java 8 or higher (for Apache Spark)
 
-### Installation Steps
+### Setup
 
 1. Clone the repository:
+```bash
+git clone https://github.com/ethansmadjaa/BigDataSpark.git
+````
+```bash
+cd stock-BigDataSpark
+```
 
-   ```sh
-   git clone https://github.com/ethansmadjaa/BigDataSpark.git
-   cd BigDataSpark
-   ```
+2. Create a virtual environment:
+```bash
+# Windows
+python -m venv .venv
+.\.venv\Scripts\activate
+```
 
-2. Set up a virtual environment and activate it:
+```bash
+# MacOS/Linux
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-   On MacOS:
+3. Install dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-   ```sh
-   python3.11 -m venv .venv
-   source .venv/bin/activate  
-   ```
-   on Windows
-   ```sh
-   python -m venv .venv
-   .\.venv\Scripts\activate
-   ```
-   
+4. Run the application:
+```bash
+streamlit run app.py
+```
 
-4. Install the required dependencies:
+## Usage
 
-   ```sh
-   pip install -r requirements.txt
-   ```
+1. Select a stock:
+   - Choose from predefined categories
+   - Or enter a custom ticker symbol
 
-5. Run the Streamlit app:
+2. Choose analysis period:
+   - 1 Month to 5 Years
+   - Or Year-to-Date (YTD)
 
-   ```sh
-   streamlit run app.py
-   ```
+3. Explore different analyses:
+   - Use the "Explore" tab for basic visualization
+   - "Process" tab for technical indicators
+   - "Analyze" tab for risk metrics and signals
 
-### Using the Application
+## ⚠️ Risk Disclaimer
 
-- **Ticker Input**: Enter a stock ticker (e.g., "AAPL" for Apple Inc.) to begin analysis.
-- **Exploration**: Explore initial data insights, including descriptive statistics and general information.
-- **Preprocessing**: Perform preprocessing steps to clean the data and handle any inconsistencies.
-- **Analysis**: View detailed analysis, including moving averages, daily returns, and visual insights to assist in understanding trends.
+This tool is for **educational purposes only**:
+- Not financial advice
+- Past performance doesn't predict future results
+- Technical analysis has limitations
+- Consult financial professionals for investment decisions
 
-## Example Use Case
+## Contributors
 
-A trader wishes to analyze the performance of Apple Inc. over the past year. They enter the ticker symbol "AAPL" and select different modules for exploration, preprocessing, and analysis. The application provides descriptive statistics, identifies trends using moving averages, and visualizes the daily returns distribution, aiding the trader in making informed investment decisions.
-
+- **Ethan SMADJA**
+- **Tom URBAN**
 
 ## License
 
-This project is licensed under the MIT License.
-
-## Acknowledgements
-
-- **Apache Spark** for scalable data processing.
-- **Streamlit** for providing a user-friendly web application framework.
-- **Yahoo Finance (yfinance)** for the stock market data.
+This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
-Feel free to reach out if you have any questions or run into issues using the app. Happy analyzing!
-
-## Important Risk Disclaimer
-
-⚠️ **This is an Educational Tool Only**
-
-This application comes with significant risks and limitations:
-
-1. **Educational Purpose**
-   - This tool is for learning and demonstration only
-   - Not intended for real trading decisions
-   - Should not be used as a primary trading system
-
-2. **Market Risks**
-   - Stock trading involves risk of loss
-   - Past performance doesn't guarantee future results
-   - Market conditions change rapidly
-
-3. **Technical Analysis Limitations**
-   - Indicators may provide false signals
-   - Historical patterns may not repeat
-   - Technical analysis should not be used in isolation
-
-4. **Data Reliability**
-   - Data may have delays or inaccuracies
-   - Real-time market conditions may differ
-   - Processing and cleaning may affect accuracy
-
-5. **Legal Notice**
-   - Not financial advice
-   - Consult licensed professionals for investment decisions
-   - Users assume all risks associated with use
-
-By using this application, you acknowledge these risks and limitations.
+Developed as part of the Big Data Frameworks course at ECE Paris - M1 DATA & AI.
