@@ -88,16 +88,21 @@ python -m venv .venv
 ```bash
 python3.11 -m venv .venv
 ```
+
 ```Bash
 source .venv/bin/activate
 ```
+4. Upgrade pip
+```bash
+pip install --upgrade pip
+```
 
-3. Install dependencies:
+5. Install dependencies:
 ```bash
 pip install -r requirements.txt
 ```
 
-4. Run the application:
+6. Run the application:
 ```bash
 streamlit run app.py
 ```
