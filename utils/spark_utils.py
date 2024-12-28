@@ -2,39 +2,46 @@ import streamlit as st
 from pyspark.sql import SparkSession
 
 
+# TODO: fix memory leak when processing large datasets
+# TODO: add proper error handling for spark failures
+# TODO: implement session pooling for better perf
+# TODO: cleanup the config mess - too many hardcoded values
+
 def create_spark_session() -> SparkSession:
     """
-    Create a simple Spark session for our stock analysis.
-    This is a basic configuration for learning purposes.
+    Setup basic spark session for our analysis.
+    Nothing fancy, just local mode for now.
     """
     try:
-        # TODO: Might need to adjust memory settings based on data size
-        spark = (SparkSession.builder
-                .appName("Stock Analysis Project")
-                # Basic memory settings for local development
+        # spark config - might need tweaking
+        sprk = (SparkSession.builder
+                .appName("Stock Analysis")
+                # 2g seems ok on my laptop but might need more
                 .config("spark.driver.memory", "2g")
-                # Using local mode for development and testing
+                # local mode cuz we're poor lol
                 .master("local[*]")
                 .getOrCreate())
-        
-        # Reduce logging noise
-        spark.sparkContext.setLogLevel("ERROR")
-        return spark
-        
+
+        # shut up spark, ur too noisy
+        sprk.sparkContext.setLogLevel("ERROR")
+        return sprk
+
     except Exception as e:
-        st.error(f"Failed to create Spark session: {str(e)}")
+        # should prob handle diff exceptions differently but whatever
+        st.error(f"Spark died: {str(e)}")
         raise
 
 
-def stop_spark_session(spark: SparkSession):
-    """Stop the Spark session when we're done."""
-    if spark:
-        spark.stop()
+def stop_spark_session(sprk: SparkSession):
+    """Kill spark when we're done."""
+    if sprk:  # check if its not ded already
+        sprk.stop()
 
 
-def cleanup_spark_cache(spark: SparkSession):
+def cleanup_spark_cache(sprk: SparkSession):
     """
-    Clean up cached data to free memory.
-    Note: This is important when working with limited RAM on my laptop!
+    Clear spark cache cuz memory go brrr.
+    My poor laptop can't handle too much data lmao.
     """
-    spark.catalog.clearCache()
+    # note: might wanna add some checks here
+    sprk.catalog.clearCache()  # yeet the cache
