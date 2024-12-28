@@ -78,6 +78,40 @@ def main():
                 color: #9BA1B9;
                 margin-right: 5px;
             }
+
+            .tooltip {
+                position: relative;
+                display: inline-block;
+                cursor: help;
+            }
+
+            .tooltip .tooltiptext {
+                visibility: hidden;
+                width: 300px;
+                background-color: #2E303D;
+                color: #fff;
+                text-align: left;
+                border-radius: 6px;
+                padding: 10px;
+                border: 1px solid #464B5C;
+                font-size: 0.9em;
+                
+                /* Position the tooltip */
+                position: absolute;
+                z-index: 1;
+                bottom: 125%;
+                left: 50%;
+                margin-left: -150px;
+                
+                /* Fade in */
+                opacity: 0;
+                transition: opacity 0.3s;
+            }
+
+            .tooltip:hover .tooltiptext {
+                visibility: visible;
+                opacity: 1;
+            }
             </style>
         """, unsafe_allow_html=True)
 
