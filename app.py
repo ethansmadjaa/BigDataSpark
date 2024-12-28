@@ -1,16 +1,20 @@
-import streamlit as st
 import gc
+
+import streamlit as st
 
 from analysis import analyze_data
 from exploration import explore_data
 from preprocessing import preprocess_data
 from utils.constants import STOCK_CATEGORIES
+from utils.risk_warnings import show_risk_warning
 from utils.spark_utils import create_spark_session, cleanup_spark_cache
 from utils.stock_utils import get_stock_info, format_market_cap, get_ytd_days
-from utils.risk_warnings import show_risk_warning
 
 
 def main():
+    # TODO: ajouter un cache pour les données stock (opti perf)
+    # TODO: fix le bug avec le selectbox qui reset qd on change de tab
+
     st.set_page_config(
         page_title="Stock Analysis Dashboard",
         page_icon="📈",
@@ -18,37 +22,36 @@ def main():
         initial_sidebar_state="expanded"
     )
 
-    # Add personal note/project introduction
+    # note perso: refactor cette partie dans un fichier séparé
     with st.expander("ℹ️ About this project", expanded=True):
         st.markdown("""
         ### 📚 ECE Paris - M1 DATA & AI Project
         
         **Big Data Frameworks Course Project**
         
-        This stock analysis dashboard was developed by:
+        Ce dashboard a été dev par:
         - **Ethan SMADJA**
         - **Tom URBAN**
         
-        As part of our M1 DATA & AI curriculum at ECE Paris, we created this project to apply 
-        concepts learned in our Big Data Frameworks course.
+        Dans le cadre du cours Big Data Frameworks en M1 DATA & AI à ECE Paris.
         
-        ⚠️ **RISK WARNING**
+        ⚠️ **ATTENTION AUX RISQUES**
         
-        This tool is for educational purposes only:
-        - Past performance does not guarantee future results
-        - Technical analysis should not be used as the sole decision-making tool
-        - Always conduct thorough research and consider consulting financial professionals
-        - Trading stocks involves substantial risk of loss
+        Cet outil est uniquement éducatif:
+        - Les perfs passées garantissent pas le futur 
+        - Pas de décision basée uniquement sur l'analyse technique
+        - Faites vos recherches et voyez des pros
+        - Le trading c dangereux lol
         
         ---
         """)
 
+    # css un peu crade mais ça marche
     st.markdown("""
             <style>
             .main { padding: 0rem 1rem; }
             .stTabs [data-baseweb="tab-list"] { gap: 2px; }
             .stTabs [data-baseweb="tab"] { padding: 10px 20px; }
-
 
             .stock-info {
                 background-color: #262730;
@@ -58,7 +61,7 @@ def main():
                 border: 1px solid #464B5C;
             }
             .stock-info h4 {
-                color: #FFFFFF;
+                color: #FFFFFF; 
                 margin: 0 0 10px 0;
                 font-size: 1.1em;
             }
@@ -82,116 +85,115 @@ def main():
 
     st.sidebar.title("Stock Selection")
 
-    selection_method = st.sidebar.radio(
-        "How do you want to pick a stock?",
+    # choix du mode de selection des stocks
+    selection_mode = st.sidebar.radio(
+        "Comment choisir le stock ?",
         ["Category", "Custom Ticker"],
         key="main_selection_method"
     )
 
-    if selection_method == "Category":
-        # If they want to browse categories, we show them organized groups of stocks
-        category = st.sidebar.selectbox(
-            "Pick a category",
+    if selection_mode == "Category":
+        # selection par categorie 
+        categ = st.sidebar.selectbox(
+            "Choisis une catégorie",
             list(STOCK_CATEGORIES.keys()),
             key="main_category"
         )
-        stock_options = STOCK_CATEGORIES[category]
+        stock_opts = STOCK_CATEGORIES[categ]
         selected_stock = st.sidebar.selectbox(
-            "Choose your stock",
-            list(stock_options.keys()),
-            format_func=lambda x: f"{x} - {stock_options[x]}",  # Show both symbol and name
+            "Choisis ton stock",
+            list(stock_opts.keys()),
+            format_func=lambda x: f"{x} - {stock_opts[x]}",  # affiche symbole + nom
             key="main_stock"
         )
     else:
-        # If they want to type in their own stock symbol
+        # saisie manuelle du symbole
         selected_stock = st.sidebar.text_input(
-            "Type in a stock symbol",
-            value="AAPL",
-            max_chars=5,  # Stock symbols are usually 1-5 characters
+            "Entre un symbole boursier",
+            value="AAPL",  # valeur par defaut
+            max_chars=5,
             key="main_ticker"
-        ).upper()  # Convert to uppercase since that's how stock symbols are written
+        ).upper()
 
-    # Time range selection
     st.sidebar.markdown("---")
-    st.sidebar.subheader("Time Range")
+    st.sidebar.subheader("Période")
 
-    # Define our preset time periods
-    period_options = {
-        "1 Month": 30,
-        "3 Months": 90,
-        "6 Months": 180,
-        "YTD": get_ytd_days(),  # Days since January 1st
-        "1 Year": 365,
-        "2 Years": 730,
-        "5 Years": 1825
+    # periodes predefinies
+    periods = {
+        "1 Mois": 30,
+        "3 Mois": 90,
+        "6 Mois": 180,
+        "YTD": get_ytd_days(),  # jours depuis 1er janvier
+        "1 An": 365,
+        "2 Ans": 730,
+        "5 Ans": 1825
     }
 
     selected_period = st.sidebar.select_slider(
-        "Pick a time range",
-        options=list(period_options.keys())
+        "Choisis une période",
+        options=list(periods.keys())
     )
-    days = period_options[selected_period]
+    nb_jours = periods[selected_period]
 
-    # Create Spark session first
+    # init spark 
     spark = create_spark_session()
 
+    # recup infos du stock
     stock_df = get_stock_info(selected_stock, spark)
     if stock_df:
         st.sidebar.markdown("---")
-        st.sidebar.subheader("Stock Details")
-        # Display the info in a nice formatted box
+        st.sidebar.subheader("Détails du stock")
+
         current_stock_info = stock_df.where(stock_df.ticker == selected_stock).collect()
 
         if current_stock_info:
-            name = current_stock_info[0]['name']
-            current_price = current_stock_info[0]['current_price']
-            price_change = current_stock_info[0]['price_change']
-            volume = current_stock_info[0]['volume']
+            nom = current_stock_info[0]['name']
+            prix = current_stock_info[0]['current_price']
+            variation = current_stock_info[0]['price_change']
+            vol = current_stock_info[0]['volume']
             market_cap = format_market_cap(current_stock_info[0]['market_cap'])
-            sector = current_stock_info[0]['sector']
+            secteur = current_stock_info[0]['sector']
 
-            # Create a safer display string with explicit null checks
+            # affichage des infos avec couleur conditionnelle pour la variation
+            variation_color = "#FF4B4B" if variation < 0 else "#00CC96"  # rouge si négatif, vert si positif
             display_html = f"""
                 <div class="stock-info">
-                <h4>{selected_stock} - {name if name else 'N/A'}</h4>
-                <p><span class="label">Price:</span> <span class="highlight">
-                    {f'${current_price:.2f}' if current_price is not None else 'N/A'}</span></p>
-                <p><span class="label">Change:</span> <span class="highlight">
-                    {f'{price_change:.2f}%' if price_change is not None else 'N/A'}</span></p>
+                <h4>{selected_stock} - {nom if nom else 'N/A'}</h4>
+                <p><span class="label">Prix:</span> <span class="highlight">
+                    {f'${prix:.2f}' if prix is not None else 'N/A'}</span></p>
+                <p><span class="label">Variation (24h):</span> <span style="color: {variation_color}; font-weight: bold;">
+                    {f'{variation:+.2f}%' if variation is not None else 'N/A'}</span></p>
                 <p><span class="label">Volume:</span> 
-                    {f'{int(volume):,}' if volume is not None else 'N/A'}</p>
-                <p><span class="label">Market Cap:</span> {market_cap if market_cap else 'N/A'}</p>
-                <p><span class="label">Sector:</span> {sector if sector else 'N/A'}</p>
+                    {f'{int(vol):,}' if vol is not None else 'N/A'}</p>
+                <p><span class="label">Capitalisation:</span> {market_cap if market_cap else 'N/A'}</p>
+                <p><span class="label">Secteur:</span> {secteur if secteur else 'N/A'}</p>
                 </div>
             """
 
             st.sidebar.markdown(display_html, unsafe_allow_html=True)
         else:
-            st.sidebar.warning("No data available for this stock")
+            st.sidebar.warning("Pas de données dispo pour ce stock")
 
-    # Show risk warning
+    # warning risques
     show_risk_warning()
 
-    # Create three main tabs for different types of analysis
-    tab1, tab2, tab3 = st.tabs(["Explore", "Process", "Analyze"])
+    # tabs pour les diff analyses
+    tab1, tab2, tab3 = st.tabs(["Explorer", "Traiter", "Analyser"])
 
-    # Run the appropriate analysis based on which tab is selected
     with tab1:
-        explore_data(spark, selected_stock, days)
+        explore_data(spark, selected_stock, nb_jours)
     with tab2:
-        preprocess_data(spark, selected_stock, days)
+        preprocess_data(spark, selected_stock, nb_jours)
     with tab3:
-        analyze_data(spark, selected_stock, days)
+        analyze_data(spark, selected_stock, nb_jours)
 
-    # Clean up after operations
+    # nettoyage memoire
     cleanup_spark_cache(spark)
     gc.collect()
 
-    # Always stop Spark session
     if 'spark' in locals():
         spark.stop()
 
 
-# This is where the app starts running
 if __name__ == "__main__":
     main()
