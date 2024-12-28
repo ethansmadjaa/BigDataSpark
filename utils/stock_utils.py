@@ -1,37 +1,30 @@
+import concurrent.futures
+import time
 from datetime import datetime
-import yfinance as yf
+
 import streamlit as st
+import yfinance as yf
 from pyspark.sql import SparkSession, Row
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType
-from pyspark.sql.functions import last, date_add
-import concurrent.futures
-from functools import partial
-import threading
-import time
 
+
+# TODO: handle yfinance timeouts better - keeps failing randomly
+# TODO: add caching for frequently accessed stocks
+# TODO: fix the weird bug with market cap calculation
+# TODO: clean up the messy period conversion logic
+# TODO: add more error handling for API failures
 
 def get_ytd_days() -> int:
-    """
-    Calculate the number of days from the start of the current year.
-    
-    Returns:
-        int: Number of days since January 1st of current year
-    """
+    """Get days since start of year."""
     today = datetime.now()
-    start_of_year = datetime(today.year, 1, 1)  # January 1st of current year
-    return (today - start_of_year).days
+    jan1 = datetime(today.year, 1, 1)  # start of year
+    return (today - jan1).days
 
 
-def get_stock_info(ticker: str, spark: SparkSession):
+def get_stock_info(tkr: str, spark: SparkSession):
     """
-    Fetch stock information from Yahoo Finance and create a cached Spark DataFrame.
-    
-    Args:
-        ticker (str): Stock ticker symbol
-        spark (SparkSession): Active Spark session
-        
-    Returns:
-        DataFrame: Cached Spark DataFrame containing stock information
+    Get basic stock info from Yahoo.
+    Sometimes fails cuz their API is wonky.
     """
     schema = StructType([
         StructField('ticker', StringType(), True),
@@ -45,51 +38,52 @@ def get_stock_info(ticker: str, spark: SparkSession):
     ])
 
     try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
-        
-        # Get current price - try different possible fields
-        current_price = float(
-            info.get("currentPrice") or 
-            info.get("regularMarketPrice") or 
-            info.get("price") or 
+        stk = yf.Ticker(tkr)
+        info = stk.info
+
+        # try diff price fields cuz yahoo api is inconsistent
+        curr_price = float(
+            info.get("currentPrice") or
+            info.get("regularMarketPrice") or
+            info.get("price") or
             0
         )
-        
-        # Get previous close price
-        previous_close = float(
-            info.get("previousClose") or 
-            info.get("regularMarketPreviousClose") or 
-            current_price
-        )
-        
-        # Calculate price change
-        price_change = ((current_price - previous_close) / previous_close * 100) if previous_close else 0
 
-        # Convert market cap to float
-        market_cap = float(info.get("marketCap", 0))
-        
-        # Convert volume to float
-        volume = float(info.get("volume") or info.get("regularMarketVolume") or 0)
+        # get prev close if available
+        prev_close = float(
+            info.get("previousClose") or
+            info.get("regularMarketPreviousClose") or
+            curr_price
+        )
+
+        # calc % change
+        pct_change = ((curr_price - prev_close) / prev_close * 100) if prev_close else 0
+
+        # convert market cap to float - sometimes comes as string
+        mkt_cap = float(info.get("marketCap", 0))
+
+        # get volume, sometimes missing
+        vol = float(info.get("volume") or info.get("regularMarketVolume") or 0)
 
         stock_row = Row(
-            ticker=ticker,
+            ticker=tkr,
             name=info.get("longName") or info.get("shortName"),
             sector=info.get("sector"),
             industry=info.get("industry"),
-            market_cap=market_cap,
-            current_price=current_price,
-            price_change=price_change,
-            volume=volume
+            market_cap=mkt_cap,
+            current_price=curr_price,
+            price_change=pct_change,
+            volume=vol
         )
 
         df = spark.createDataFrame([stock_row], schema=schema)
-        return df.cache()
+        return df.cache()  # cache it cuz why not
 
     except Exception as e:
-        st.error(f"Error fetching stock info for {ticker}: {str(e)}")
+        st.error(f"Failed to get data for {tkr}: {str(e)}")
+        # return empty df if failed
         empty_row = Row(
-            ticker=ticker,
+            ticker=tkr,
             name=None,
             sector=None,
             industry=None,
@@ -102,92 +96,84 @@ def get_stock_info(ticker: str, spark: SparkSession):
         return df.cache()
 
 
-def format_market_cap(market_cap: int) -> str:
-    """
-    Format market capitalization value into a human-readable string.
-    
-    Args:
-        market_cap (int): Market capitalization value
-        
-    Returns:
-        str: Formatted string (e.g., "$1.5T" for 1.5 trillion)
-    """
-    if market_cap is None:
+def format_market_cap(mkt_cap: int) -> str:
+    """Make market cap readable (1.5T instead of 1500000000000)."""
+    if mkt_cap is None:
         return 'N/A'
 
-    if market_cap >= 1e12:
-        return f"${market_cap / 1e12:.1f}T"
-    elif market_cap >= 1e9:
-        return f"${market_cap / 1e9:.1f}B"
-    elif market_cap >= 1e6:
-        return f"${market_cap / 1e6:.1f}M"
+    if mkt_cap >= 1e12:
+        return f"${mkt_cap / 1e12:.1f}T"
+    elif mkt_cap >= 1e9:
+        return f"${mkt_cap / 1e9:.1f}B"
+    elif mkt_cap >= 1e6:
+        return f"${mkt_cap / 1e6:.1f}M"
     else:
-        return f"${market_cap:,.0f}" 
+        return f"${mkt_cap:,.0f}"
 
 
-def fetch_with_timeout(func, timeout_seconds):
-    """Execute function with timeout using ThreadPoolExecutor."""
+def fetch_with_timeout(func, timeout_secs):
+    """Run function with timeout cuz yahoo api is slow af."""
     with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(func)
         try:
-            return future.result(timeout=timeout_seconds)
+            return future.result(timeout=timeout_secs)
         except concurrent.futures.TimeoutError:
             return None
 
 
-def get_stock_history(ticker: str, spark: SparkSession, days: int = 365):
-    """Fetch historical stock data with timeout handling."""
+def get_stock_history(tkr: str, spark: SparkSession, days: int = 365):
+    """Get historical data - might timeout if yahoo is being slow."""
     try:
-        # Function to fetch stock data
+        # func to get data from yahoo
         def fetch_stock_data():
-            stock = yf.Ticker(ticker)
-            
-            # Convert days to appropriate period format
+            stk = yf.Ticker(tkr)
+
+            # convert days to yahoo period format - kinda messy
             if days <= 5:
-                period = "5d"
+                prd = "5d"
             elif days <= 30:
-                period = "1mo"
+                prd = "1mo"
             elif days <= 90:
-                period = "3mo"
+                prd = "3mo"
             elif days <= 180:
-                period = "6mo"
+                prd = "6mo"
             elif days <= 365:
-                period = "1y"
+                prd = "1y"
             elif days <= 730:
-                period = "2y"
+                prd = "2y"
             elif days <= 1825:
-                period = "5y"
+                prd = "5y"
             else:
-                period = "max"
-            
-            return stock.history(period=period)
-            
-        # Show loading message
-        status_placeholder = st.empty()  # Create empty placeholder
-        with status_placeholder, st.spinner(f"Fetching {get_period_name(days)} of historical data for {ticker}..."):
-            # Fetch data with timeout
+                prd = "max"
+
+            return stk.history(period=prd)
+
+        # show loading msg
+        status_msg = st.empty()
+        with status_msg, st.spinner(f"Getting {get_period_name(days)} of data for {tkr}..."):
+            # try to get data with timeout
             hist = fetch_with_timeout(fetch_stock_data, 30)
-        
+
         if hist is None:
-            st.error(f"Request timed out while fetching data for {ticker}")
+            st.error(f"Timeout getting data for {tkr}")
             return None
-            
+
         if hist.empty:
-            st.warning(f"No historical data found for {ticker}")
+            st.warning(f"No data found for {tkr}")
             return None
-        
-        # Process the data
-        with st.spinner("Processing data..."):
-            # Reset index to make Date a column instead of index
+
+        # process the data we got
+        with st.spinner("Processing..."):
+            # make Date a normal column
             hist = hist.reset_index()
-            
-            # Convert datetime to date string for better compatibility
+
+            # convert dates to strings
             hist['Date'] = hist['Date'].dt.strftime('%Y-%m-%d')
-            
-            # Convert Volume to float
+
+            # fix volume type
             hist['Volume'] = hist['Volume'].astype(float)
-            
-            # Define schema explicitly for better control
+
+            # setup schema
             schema = StructType([
                 StructField("Date", StringType(), True),
                 StructField("Open", DoubleType(), True),
@@ -198,29 +184,29 @@ def get_stock_history(ticker: str, spark: SparkSession, days: int = 365):
                 StructField("Dividends", DoubleType(), True),
                 StructField("Stock Splits", DoubleType(), True)
             ])
-            
-            # Create Spark DataFrame with explicit schema
+
+            # create spark df
             spark_df = spark.createDataFrame(hist, schema=schema)
-            rows_count = spark_df.count()
-            
-            # Cache the DataFrame
+            n_rows = spark_df.count()
+
+            # cache it for speed
             cached_df = spark_df.cache()
-            
-            # Show success message briefly then clear it
-            with status_placeholder:
-                st.success(f"Successfully loaded {rows_count} records for {ticker}")
-                time.sleep(1)  # Show message for 1 second
-                status_placeholder.empty()  # Clear the message
-                
+
+            # show quick success msg
+            with status_msg:
+                st.success(f"Got {n_rows} rows for {tkr}")
+                time.sleep(1)  # show msg briefly
+                status_msg.empty()
+
             return cached_df
-        
+
     except Exception as e:
-        st.error(f"Error processing {ticker}: {str(e)}")
+        st.error(f"Error with {tkr}: {str(e)}")
         return None
 
 
 def get_period_name(days: int) -> str:
-    """Convert days to human-readable period name."""
+    """Convert days to something readable."""
     if days <= 5:
         return "5 days"
     elif days <= 30:
@@ -236,4 +222,4 @@ def get_period_name(days: int) -> str:
     elif days <= 1825:
         return "5 years"
     else:
-        return "maximum available" 
+        return "maximum available"
