@@ -13,103 +13,98 @@ from pyspark.sql.window import Window
 
 def add_technical_indicators(df: DataFrame, spark: SparkSession):
     """Add technical indicators to the dataframe."""
-    # messy title but works for now
-    st.subheader("3. Technical Indicators")
+    st.subheader("2. Technical Indicators")
 
     with st.expander("📈 Price-Based Indicators", expanded=True):
-        st.markdown("""
-        ### Understanding Technical Indicators
-        
-        ⚠️ **IMPORTANT RISK DISCLAIMER**
-        - Technical indicators are tools, not guaranteed predictions
-        - Always use multiple indicators and additional analysis
-        - Past patterns may not repeat in the future
-        - Market conditions can change rapidly
-        
-        Technical indicators help traders analyze price movements and identify potential trading opportunities.
-        Here are the indicators available in this analysis:
-        """)
-
-        # warn users about risks - legal stuff
-        st.markdown("""
-        ⚠️ **Trading Risk Notice**
-        Each indicator has limitations and should not be used in isolation:
-        - False signals can occur
-        - Market conditions affect indicator reliability
-        - Different timeframes may show conflicting signals
-        """)
-
-        # SMA stuff
+        # SMA section
         st.write("##### Simple Moving Averages (SMA)")
         st.markdown("""
-        **What is SMA?**  
-        A Simple Moving Average calculates the average price over a specified period. It helps identify trends by smoothing out price fluctuations.
-        - Short-term SMAs (20 days) show immediate trends
-        - Medium-term SMAs (50 days) show intermediate trends
-        - Long-term SMAs (200 days) show long-term trends
+            <div class="tooltip">ℹ️ About Simple Moving Average (SMA)
+                <span class="tooltiptext">
+                <strong>How to Use SMA:</strong><br>
+                • Trend Direction: Price above SMA = Uptrend<br>
+                • Support/Resistance: SMAs often act as price barriers<br>
+                • Common Periods:<br>
+                  - 20 days: Short-term trend<br>
+                  - 50 days: Medium-term trend<br>
+                  - 200 days: Long-term trend<br>
+                • Golden Cross: Short SMA crosses above Long SMA (Bullish)
+                </span>
+            </div>
+        """, unsafe_allow_html=True)
         
-        *Trading signals often occur when shorter SMAs cross longer SMAs.*
-        """)
         sma_prds = st.multiselect(
             "Select SMA periods (days):",
             options=[5, 10, 20, 50, 100, 200],
-            default=[20, 50, 200],
-            help="Common SMA periods are 20 (month), 50 (quarter) and 200 (year) days"
+            default=[20, 50, 200]
         )
 
-        # EMA config
+        # EMA section
         st.write("##### Exponential Moving Average (EMA)")
         st.markdown("""
-        **What is EMA?**  
-        An Exponential Moving Average gives more weight to recent prices, making it more responsive to new information than SMA.
-        - 12-day EMA: Popular for short-term trends
-        - 26-day EMA: Common for medium-term analysis
+            <div class="tooltip">ℹ️ About Exponential Moving Average (EMA)
+                <span class="tooltiptext">
+                <strong>EMA vs SMA:</strong><br>
+                • Reacts faster to price changes<br>
+                • More weight to recent prices<br>
+                • Common Uses:<br>
+                  - 12 & 26 day: MACD calculation<br>
+                  - 9 day: Short-term signals<br>
+                • Crossovers often signal trend changes
+                </span>
+            </div>
+        """, unsafe_allow_html=True)
         
-        *EMAs react faster to price changes than SMAs.*
-        """)
         ema_prds = st.multiselect(
             "Select EMA periods (days):",
             options=[12, 26, 50, 200],
-            default=[12, 26],
-            help="EMA gives more weight to recent prices. Common periods are 12 and 26 days"
+            default=[12, 26]
         )
 
-        # bollinger config - might need tuning
+        # Bollinger Bands section
         st.write("##### Bollinger Bands")
         st.markdown("""
-        **What are Bollinger Bands?**  
-        Bollinger Bands consist of three lines:
-        - Middle Band: 20-day SMA
-        - Upper Band: SMA + (Standard Deviation × 2)
-        - Lower Band: SMA - (Standard Deviation × 2)
+            <div class="tooltip">ℹ️ About Bollinger Bands
+                <span class="tooltiptext">
+                <strong>Trading Signals:</strong><br>
+                • Price near upper band: Potentially overbought<br>
+                • Price near lower band: Potentially oversold<br>
+                • Bands squeezing: Volatility decreasing<br>
+                • Bands expanding: Volatility increasing<br>
+                • Price breaking bands: Strong momentum
+                </span>
+            </div>
+        """, unsafe_allow_html=True)
         
-        *When prices move outside the bands, it may indicate overbought or oversold conditions.*
-        """)
         bb_prd = st.slider(
             "Bollinger Bands period:",
             min_value=5,
             max_value=50,
-            value=20,
-            help="Standard period is 20 days"
+            value=20
         )
+
         bb_std = st.slider(
             "Number of standard deviations:",
             min_value=1,
             max_value=3,
-            value=2,
-            help="Standard is 2 standard deviations"
+            value=2
         )
 
-        # ROC settings
+        # ROC section
         st.write("##### Price Rate of Change (ROC)")
         st.markdown("""
-        **What is ROC?**  
-        Rate of Change measures the percentage change in price between the current price and the price n periods ago.
-        - Positive ROC: Price is higher than n periods ago
-        - Negative ROC: Price is lower than n periods ago
+            <div class="tooltip">ℹ️ About Rate of Change (ROC)
+                <span class="tooltiptext">
+                <strong>Understanding ROC:</strong><br>
+                • Measures momentum and trend strength<br>
+                • Positive ROC: Upward momentum<br>
+                • Negative ROC: Downward momentum<br>
+                • Zero line crossings: Potential trend changes<br>
+                • Extreme values: Possible reversal points
+                </span>
+            </div>
+        """, unsafe_allow_html=True)
         
-        *Extreme ROC values might indicate overbought or oversold conditions.*
-        """)
         roc_prd = st.slider(
             "ROC period (days):",
             min_value=1,
@@ -317,7 +312,7 @@ def add_technical_indicators(df: DataFrame, spark: SparkSession):
                             go.Scatter(
                                 x=dates,
                                 y=bb_lower,
-                                name=f"Lower Band ({bb_std}σ)",
+                                name=f"Lower Band ({bb_std}��)",
                                 line=dict(color="#95A5A6", width=1, dash='dot'),
                                 fill='tonexty'
                             )
