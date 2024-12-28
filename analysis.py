@@ -7,6 +7,7 @@ from utils.risk_warnings import show_specific_warning
 import math
 import numpy as np
 from scipy import stats as scipy_stats
+from utils.stock_utils import get_stock_history
 
 
 def calculate_daily_returns(df):
@@ -72,53 +73,35 @@ def analyze_volatility(df):
         )
 
 
-def analyze_drawdown(df):
-    """
-    Calculate and visualize maximum drawdown from peak prices.
-    
-    Parameters
-    ----------
-    df : pyspark.sql.DataFrame
-        DataFrame with columns: Date, Close
-        
-    Returns
-    -------
-    pyspark.sql.DataFrame
-        DataFrame with additional columns: running_max, drawdown
-        
-    Notes
-    -----
-    - Drawdown measures decline from peak value
-    - Calculated as: ((Current_Price - Peak_Price) / Peak_Price) * 100
-    - Helps assess downside risk and worst historical losses
-    
-    Displays
-    --------
-    - Maximum drawdown percentage
-    - Visual representation of drawdown over time
-    """
-    st.write("##### 2. Maximum Drawdown")
-    st.markdown("""
-    Maximum drawdown measures the largest peak-to-trough decline in the stock's price.
-    It helps understand potential downside risk.
-    """)
-    
+def calculate_drawdown(df):
+    """Calculate drawdown without displaying."""
+    window_spec = Window.orderBy("Date")
     df = df.withColumn(
-        "running_max",
-        expr("max(Close) over (order by Date rows between unbounded preceding and current row)")
+        "rolling_max",
+        max("Close").over(window_spec)
     ).withColumn(
         "drawdown",
-        ((col("Close") - col("running_max")) / col("running_max")) * 100
+        ((col("Close") - col("rolling_max")) / col("rolling_max")) * 100
     )
+    return df
+
+
+def analyze_drawdown(df, display=True):
+    """Analyze drawdown with optional display."""
+    df = calculate_drawdown(df)
     
-    max_drawdown = df.select(min("drawdown")).first()[0]
-    if max_drawdown:
+    if display:
+        st.write("##### 2. Maximum Drawdown Analysis")
+        st.markdown("""
+        Maximum drawdown measures the largest peak-to-trough decline, showing potential downside risk.
+        """)
+        
+        max_drawdown = df.select(min("drawdown")).first()[0]
         st.metric(
             "Maximum Drawdown",
             f"{max_drawdown:.2f}%",
-            help="The worst decline from peak to trough"
+            help="Largest peak-to-trough decline. Lower values indicate higher historical risk."
         )
-        
         plot_drawdown(df)
     
     return df
@@ -142,7 +125,7 @@ def plot_drawdown(df):
         yaxis_title="Drawdown (%)",
         template="plotly_dark"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="drawdown_plot")
 
 
 def calculate_var(returns):
@@ -219,7 +202,7 @@ def plot_return_distribution(returns):
         yaxis_title="Frequency",
         template="plotly_dark"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="return_dist_plot")
 
 
 def analyze_basic_statistics(df):
@@ -316,7 +299,7 @@ def plot_qq(returns):
         template="plotly_dark"
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="qq_plot")
 
 
 def perform_normality_tests(returns):
@@ -397,7 +380,7 @@ def plot_outliers(df, returns, outliers):
         template="plotly_dark"
     )
     
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key="outliers_plot")
 
 
 def show_upcoming_features():
@@ -425,6 +408,83 @@ def show_upcoming_features():
     
     ⚠️ *Note: All future features will include appropriate risk warnings and educational context.*
     """)
+
+
+def get_trading_signal(df, returns):
+    """Generate trading signal based on multiple analysis components."""
+    df = calculate_drawdown(df)
+    signals = {}
+    
+    # 1. Trend Analysis (40%)
+    trend_score = 0
+    
+    # Volatility check
+    volatility = df.select(stddev("daily_return")).first()[0]
+    if volatility:
+        annualized_vol = volatility * math.sqrt(252)
+        trend_score += 20 if annualized_vol < 30 else -20
+        signals['volatility'] = annualized_vol
+    
+    # Drawdown check
+    max_drawdown = df.select(min("drawdown")).first()[0]
+    if max_drawdown:
+        trend_score += 20 if max_drawdown > -20 else -20
+        signals['max_drawdown'] = max_drawdown
+    
+    # 2. Statistical Analysis (30%)
+    stats_score = 0
+    
+    stats = df.select(
+        avg("daily_return").alias("mean"),
+        stddev("daily_return").alias("std"),
+        expr("skewness(daily_return)").alias("skewness")
+    ).collect()[0]
+    
+    mean_return = stats["mean"]
+    stats_score += 15 if mean_return > 0 else -15
+    signals['mean_return'] = mean_return
+    
+    skewness = stats["skewness"]
+    stats_score += 15 if skewness > 0 else -15
+    signals['skewness'] = skewness
+    
+    # 3. Risk Assessment (30%)
+    risk_score = 0
+    
+    # VaR check
+    var_95 = np.percentile(returns, 5)  # Using numpy instead of sorting
+    risk_score += 15 if abs(var_95) < 3 else -15
+    signals['var_95'] = var_95
+    
+    # Recent performance using numpy
+    recent_returns = np.array(returns[-5:])  # Last 5 days
+    avg_recent_return = np.mean(recent_returns)
+    risk_score += 15 if avg_recent_return > 0 else -15
+    signals['recent_performance'] = float(avg_recent_return)  # Convert from numpy type
+    
+    # Calculate final score
+    final_score = trend_score * 0.4 + stats_score * 0.3 + risk_score * 0.3
+    
+    # Generate recommendation
+    if final_score > 30:
+        recommendation = "Strong Buy"
+        color = "green"
+    elif final_score > 0:
+        recommendation = "Buy"
+        color = "lightgreen"
+    elif final_score > -30:
+        recommendation = "Hold"
+        color = "yellow"
+    else:
+        recommendation = "Sell"
+        color = "red"
+    
+    return {
+        'score': final_score,
+        'recommendation': recommendation,
+        'color': color,
+        'signals': signals
+    }
 
 
 def analyze_data(spark_session: SparkSession, stock: str, days: int):
@@ -466,15 +526,18 @@ def analyze_data(spark_session: SparkSession, stock: str, days: int):
     """
     st.title("Data Analysis")
     
-    # Get data
-    from utils.stock_utils import get_stock_history
-    df = get_stock_history(stock, spark_session, days)
+    # Create tabs for different analyses
+    tab1, tab2, tab3, tab4 = st.tabs(["Risk Analysis", "Statistical Analysis", 
+                                     "Trading Signal", "Coming Soon Features"])
     
+    # Get data and calculate returns first as they're needed by multiple tabs
+    df = get_stock_history(stock, spark_session, days)
     if df is None:
         return
-    
-    # Create tabs for different analyses
-    tab1, tab2, tab3 = st.tabs(["Risk Analysis", "Statistical Analysis", "Coming Soon Features"])
+        
+    df = calculate_daily_returns(df)
+    returns_data = df.select("daily_return").collect()
+    returns = [row["daily_return"] for row in returns_data if row["daily_return"] is not None]
     
     with tab1:
         st.subheader("Risk Analysis")
@@ -482,7 +545,7 @@ def analyze_data(spark_session: SparkSession, stock: str, days: int):
         
         df = calculate_daily_returns(df)
         analyze_volatility(df)
-        df = analyze_drawdown(df)
+        df = analyze_drawdown(df, display=True)
         
         returns_data = df.select("daily_return").collect()
         returns = [row["daily_return"] for row in returns_data if row["daily_return"] is not None]
@@ -508,5 +571,55 @@ def analyze_data(spark_session: SparkSession, stock: str, days: int):
             analyze_outliers(df, returns)
     
     with tab3:
-        show_upcoming_features()
+        st.subheader("Trading Signal Analysis")
+        show_specific_warning("trading_signal")
         
+        st.markdown("""
+        This trading signal is based on a combination of:
+        - Trend Analysis (40%): Volatility and drawdown patterns
+        - Statistical Analysis (30%): Mean returns and distribution characteristics
+        - Risk Assessment (30%): VaR and recent performance
+        """)
+        
+        if st.button("Generate Trading Signal", type="primary"):
+            with st.spinner("Analyzing market conditions..."):
+                # Use calculate_drawdown instead of analyze_drawdown
+                df = calculate_drawdown(df)
+                signal = get_trading_signal(df, returns)
+                
+                # Display recommendation
+                st.markdown(f"""
+                <div style='padding: 20px; border-radius: 5px; background-color: {signal['color']}20;
+                           border: 2px solid {signal['color']}; margin: 10px 0;'>
+                    <h2 style='color: {signal['color']}; margin: 0;'>
+                        Recommendation: {signal['recommendation']}
+                    </h2>
+                    <p style='margin: 10px 0 0 0;'>Overall Score: {(signal['score'] + 100)/2:.1f}/100</p>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Display analysis components
+                st.subheader("Analysis Components")
+                col1, col2, col3 = st.columns(3)
+                
+                with col1:
+                    st.metric("Annualized Volatility", 
+                             f"{signal['signals']['volatility']:.2f}%")
+                    st.metric("Maximum Drawdown", 
+                             f"{signal['signals']['max_drawdown']:.2f}%")
+                    
+                with col2:
+                    st.metric("Mean Daily Return", 
+                             f"{signal['signals']['mean_return']:.2f}%")
+                    st.metric("Return Skewness", 
+                             f"{signal['signals']['skewness']:.2f}")
+                    
+                with col3:
+                    st.metric("95% VaR", 
+                             f"{abs(signal['signals']['var_95']):.2f}%")
+                    st.metric("Recent Performance", 
+                             f"{signal['signals']['recent_performance']:.2f}%")
+    
+    with tab4:
+        show_upcoming_features()
+    
