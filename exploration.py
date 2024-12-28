@@ -19,6 +19,19 @@ from utils.stock_utils import get_stock_history
 
 def plot_stock_price_history(df: DataFrame, ticker: str) -> go.Figure:
     """Create a candlestick chart with volume."""
+    st.markdown("""
+        <div class="tooltip">ℹ️ About Candlestick Charts
+            <span class="tooltiptext">
+            <strong>How to Read Candlesticks:</strong><br>
+            • Green/White: Closing price higher than opening<br>
+            • Red/Black: Closing price lower than opening<br>
+            • Wicks: Show high and low prices<br>
+            • Volume: Trading activity intensity<br><br>
+            Common patterns like Doji, Hammer, and Engulfing can signal potential reversals.
+            </span>
+        </div>
+    """, unsafe_allow_html=True)
+    
     # get data and sort it properly 
     data = df.orderBy('Date').collect()
 
