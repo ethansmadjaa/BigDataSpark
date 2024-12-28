@@ -72,19 +72,23 @@ The project is modular, consisting of the following main components:
 git clone https://github.com/ethansmadjaa/BigDataSpark.git
 ````
 ```bash
-cd stock-BigDataSpark
+cd BigDataSpark
 ```
 
 2. Create a virtual environment:
+### On Windows
 ```bash
-# Windows
 python -m venv .venv
+```
+```Bash
 .\.venv\Scripts\activate
 ```
 
+### On MacOs/Linux
 ```bash
-# MacOS/Linux
 python3 -m venv .venv
+```
+```Bash
 source .venv/bin/activate
 ```
 
