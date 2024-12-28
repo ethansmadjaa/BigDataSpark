@@ -57,6 +57,14 @@ def show_specific_warning(warning_type: str):
         - Assumptions about normal distributions may not hold
         - Outliers can occur more frequently than expected
         - Past statistical patterns may not predict future behavior
+        """,
+        "trading_signal": """
+        ⚠️ **Trading Signal Warning**
+        - This signal is for educational purposes only
+        - Based on historical data which may not predict future performance
+        - Multiple factors should be considered before making investment decisions
+        - Consult with financial professionals before trading
+        - Market conditions can change rapidly
         """
     }
     return st.warning(warnings.get(warning_type, "")) 
